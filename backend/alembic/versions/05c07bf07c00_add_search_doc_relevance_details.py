@@ -1,7 +1,7 @@
 """add search doc relevance details
 
 Revision ID: 05c07bf07c00
-Revises: 3a7802814195
+Revises: b896bbd0d5a7
 Create Date: 2024-07-10 17:48:15.886653
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 # revision identifiers, used by Alembic.
 revision = "05c07bf07c00"
 down_revision = "b896bbd0d5a7"
-branch_labels = None
-depends_on = None
+branch_labels: None = None
+depends_on: None = None
 
 
 def upgrade() -> None:
