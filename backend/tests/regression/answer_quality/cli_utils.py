@@ -97,7 +97,7 @@ def get_docker_container_env_vars(suffix: str) -> dict:
 
 def manage_data_directories(suffix: str, base_path: str, use_cloud_gpu: bool) -> None:
     # Use the user's home directory as the base path
-    target_path = os.path.join(os.path.expanduser(base_path), f"test{suffix}")
+    target_path = os.path.join(os.path.expanduser(base_path), suffix)
     directories = {
         "DANSWER_POSTGRES_DATA_DIR": os.path.join(target_path, "postgres/"),
         "DANSWER_VESPA_DATA_DIR": os.path.join(target_path, "vespa/"),
@@ -149,7 +149,7 @@ def start_docker_compose(
     print("Starting Docker Compose...")
     os.chdir(os.path.dirname(__file__))
     os.chdir("../../../../deployment/docker_compose/")
-    command = f"docker compose -f docker-compose.search-testing.yml -p danswer-stack{run_suffix} up -d"
+    command = f"docker compose -f docker-compose.search-testing.yml -p danswer-stack-{run_suffix} up -d"
     command += " --build"
     command += " --force-recreate"
 
