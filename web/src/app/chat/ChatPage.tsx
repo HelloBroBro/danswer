@@ -66,7 +66,6 @@ import { useChatContext } from "@/components/context/ChatContext";
 import { v4 as uuidv4 } from "uuid";
 import { orderAssistantsForUser } from "@/lib/assistants/orderAssistants";
 import { ChatPopup } from "./ChatPopup";
-import { ChatBanner } from "./ChatBanner";
 
 import FunctionalHeader from "@/components/chat_search/Header";
 import { useSidebarVisibility } from "@/components/chat_search/hooks";
@@ -112,10 +111,12 @@ export function ChatPage({
   const selectedChatSession = chatSessions.find(
     (chatSession) => chatSession.id === existingChatSessionId
   );
+
   const chatSessionIdRef = useRef<number | null>(existingChatSessionId);
 
-  // LLM
-  const llmOverrideManager = useLlmOverride(selectedChatSession);
+  // Only updates on session load (ie. rename / switching chat session)
+  // Useful for determining which session has been loaded (i.e. still on `new, empty session` or `previous session`)
+  const loadedIdSessionRef = useRef<number | null>(existingChatSessionId);
 
   // Assistants
   const filteredAssistants = orderAssistantsForUser(availableAssistants, user);
@@ -137,6 +138,25 @@ export function ChatPage({
           )
         : undefined
   );
+
+  // Gather default temperature settings
+  const search_param_temperature = searchParams.get(
+    SEARCH_PARAM_NAMES.TEMPERATURE
+  );
+  const defaultTemperature = search_param_temperature
+    ? parseFloat(search_param_temperature)
+    : selectedAssistant?.tools.some(
+          (tool) =>
+            tool.in_code_tool_id === "SearchTool" ||
+            tool.in_code_tool_id === "InternetSearchTool"
+        )
+      ? 0
+      : 0.7;
+  const llmOverrideManager = useLlmOverride(
+    selectedChatSession,
+    defaultTemperature
+  );
+
   const setSelectedAssistantFromId = (assistantId: number) => {
     // NOTE: also intentionally look through available assistants here, so that
     // even if the user has hidden an assistant they can still go back to it
@@ -177,7 +197,10 @@ export function ChatPage({
   // session they are using
   useEffect(() => {
     const priorChatSessionId = chatSessionIdRef.current;
+    const loadedSessionId = loadedIdSessionRef.current;
     chatSessionIdRef.current = existingChatSessionId;
+    loadedIdSessionRef.current = existingChatSessionId;
+
     textAreaRef.current?.focus();
 
     // only clear things if we're going from one chat session to another
@@ -243,8 +266,15 @@ export function ChatPage({
 
       const newMessageMap = processRawChatHistory(chatSession.messages);
       const newMessageHistory = buildLatestMessageChain(newMessageMap);
-      // if the last message is an error, don't overwrite it
-      if (messageHistory[messageHistory.length - 1]?.type !== "error") {
+
+      // Update message history except for edge where where
+      // last message is an error and we're on a new chat.
+      // This corresponds to a "renaming" of chat, which occurs after first message
+      // stream
+      if (
+        messageHistory[messageHistory.length - 1]?.type !== "error" ||
+        loadedSessionId != null
+      ) {
         setCompleteMessageDetail({
           sessionId: chatSession.chat_session_id,
           messageMap: newMessageMap,
@@ -765,10 +795,7 @@ export function ChatPage({
           llmOverrideManager.llmOverride.modelName ||
           searchParams.get(SEARCH_PARAM_NAMES.MODEL_VERSION) ||
           undefined,
-        temperature:
-          llmOverrideManager.temperature ||
-          parseFloat(searchParams.get(SEARCH_PARAM_NAMES.TEMPERATURE) || "") ||
-          undefined,
+        temperature: llmOverrideManager.temperature || undefined,
         systemPromptOverride:
           searchParams.get(SEARCH_PARAM_NAMES.SYSTEM_PROMPT) || undefined,
         useExistingUserMessage: isSeededChat,
@@ -1192,6 +1219,7 @@ export function ChatPage({
             <div className="flex h-full flex-col w-full">
               {liveAssistant && (
                 <FunctionalHeader
+                  sidebarToggled={toggledSidebar}
                   reset={() => setMessage("")}
                   page="chat"
                   setSharingModalVisible={
@@ -1204,23 +1232,7 @@ export function ChatPage({
                   currentChatSession={selectedChatSession}
                 />
               )}
-              <div className="w-full flex">
-                <div
-                  style={{ transition: "width 0.30s ease-out" }}
-                  className={`
-                  flex-none 
-                  overflow-y-hidden 
-                  bg-background-100 
-                  transition-all 
-                  bg-opacity-80
-                  duration-300 
-                  ease-in-out
-                  h-full
-                  ${toggledSidebar ? "w-[250px]" : "w-[0px]"}
-                  `}
-                />
-                <ChatBanner />
-              </div>
+
               {documentSidebarInitialWidth !== undefined ? (
                 <Dropzone onDrop={handleImageUpload} noClick>
                   {({ getRootProps }) => (
@@ -1533,18 +1545,18 @@ export function ChatPage({
                               !isFetchingChatMessages && (
                                 <div
                                   className={`
-                            mx-auto 
-                            px-4 
-                            w-searchbar-xs 
-                            2xl:w-searchbar-sm 
-                            3xl:w-searchbar 
-                            grid 
-                            gap-4 
-                            grid-cols-1 
-                            grid-rows-1 
-                            mt-4 
-                            md:grid-cols-2 
-                            mb-6`}
+                                      mx-auto 
+                                      px-4 
+                                      w-searchbar-xs 
+                                      2xl:w-searchbar-sm 
+                                      3xl:w-searchbar 
+                                      grid 
+                                      gap-4 
+                                      grid-cols-1 
+                                      grid-rows-1 
+                                      mt-4 
+                                      md:grid-cols-2 
+                                      mb-6`}
                                 >
                                   {currentPersona.starter_messages.map(
                                     (starterMessage, i) => (
