@@ -26,8 +26,7 @@ from danswer.utils.text_processing import shared_precompare_cleanup
 
 
 logger = setup_logger()
-
-answer_pattern = re.compile(r'{\s*"answer"\s*:\s*"')
+answer_pattern = re.compile(r'{\s*"answer"\s*:\s*"', re.IGNORECASE)
 
 
 def _extract_answer_quotes_freeform(
@@ -231,7 +230,7 @@ def process_model_tokens(
         model_output += token
 
         if not found_answer_start:
-            m = answer_pattern.match(model_output)
+            m = answer_pattern.search(model_output)
             if m:
                 found_answer_start = True
 
