@@ -75,6 +75,7 @@ UNNAMED_KEY_PLACEHOLDER = "Unnamed"
 
 # Key-Value store keys
 KV_REINDEX_KEY = "needs_reindexing"
+KV_SEARCH_SETTINGS = "search_settings"
 KV_USER_STORE_KEY = "INVITED_USERS"
 KV_NO_AUTH_USER_PREFERENCES_KEY = "no_auth_user_preferences"
 KV_CRED_KEY = "credential_id_{}"
@@ -130,6 +131,10 @@ class DocumentSource(str, Enum):
     GOOGLE_CLOUD_STORAGE = "google_cloud_storage"
     OCI_STORAGE = "oci_storage"
     NOT_APPLICABLE = "not_applicable"
+
+
+class NotificationType(str, Enum):
+    REINDEX = "reindex"
 
 
 class BlobType(str, Enum):
