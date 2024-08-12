@@ -43,6 +43,7 @@ from danswer.configs.constants import SearchFeedbackType
 from danswer.configs.constants import TokenRateLimitScope
 from danswer.connectors.models import InputType
 from danswer.db.enums import ChatSessionSharedStatus
+from danswer.db.enums import ConnectorCredentialPairStatus
 from danswer.db.enums import IndexingStatus
 from danswer.db.enums import IndexModelStatus
 from danswer.db.enums import TaskStatus
@@ -54,6 +55,7 @@ from danswer.llm.override_models import PromptOverride
 from danswer.search.enums import RecencyBiasSetting
 from danswer.utils.encryption import decrypt_bytes_to_string
 from danswer.utils.encryption import encrypt_string_to_bytes
+from shared_configs.enums import EmbeddingProvider
 
 
 class Base(DeclarativeBase):
@@ -360,6 +362,9 @@ class ConnectorCredentialPair(Base):
         nullable=False,
     )
     name: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[ConnectorCredentialPairStatus] = mapped_column(
+        Enum(ConnectorCredentialPairStatus, native_enum=False), nullable=False
+    )
     connector_id: Mapped[int] = mapped_column(
         ForeignKey("connector.id"), primary_key=True
     )
@@ -489,7 +494,6 @@ class Connector(Base):
     time_updated: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    disabled: Mapped[bool] = mapped_column(Boolean, default=False)
 
     credentials: Mapped[list["ConnectorCredentialPair"]] = relationship(
         "ConnectorCredentialPair",
@@ -582,8 +586,12 @@ class EmbeddingModel(Base):
           cloud_provider='{self.cloud_provider.name if self.cloud_provider else 'None'}')>"
 
     @property
-    def provider_type(self) -> str | None:
-        return self.cloud_provider.name if self.cloud_provider is not None else None
+    def provider_type(self) -> EmbeddingProvider | None:
+        return (
+            EmbeddingProvider(self.cloud_provider.name.lower())
+            if self.cloud_provider is not None
+            else None
+        )
 
     @property
     def api_key(self) -> str | None:

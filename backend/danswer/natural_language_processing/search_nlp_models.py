@@ -1,5 +1,8 @@
 import re
 import time
+from collections.abc import Callable
+from functools import wraps
+from typing import Any
 
 import requests
 from httpx import HTTPError
@@ -16,7 +19,9 @@ from danswer.natural_language_processing.utils import tokenizer_trim_content
 from danswer.utils.logger import setup_logger
 from shared_configs.configs import MODEL_SERVER_HOST
 from shared_configs.configs import MODEL_SERVER_PORT
+from shared_configs.enums import EmbeddingProvider
 from shared_configs.enums import EmbedTextType
+from shared_configs.enums import RerankerProvider
 from shared_configs.model_server_models import Embedding
 from shared_configs.model_server_models import EmbedRequest
 from shared_configs.model_server_models import EmbedResponse
@@ -27,6 +32,13 @@ from shared_configs.model_server_models import RerankResponse
 from shared_configs.utils import batch_list
 
 logger = setup_logger()
+
+
+WARM_UP_STRINGS = [
+    "Danswer is amazing!",
+    "Check out our easy deployment guide at",
+    "https://docs.danswer.dev/quickstart",
+]
 
 
 def clean_model_name(model_str: str) -> str:
@@ -76,7 +88,7 @@ class EmbeddingModel:
         query_prefix: str | None,
         passage_prefix: str | None,
         api_key: str | None,
-        provider_type: str | None,
+        provider_type: EmbeddingProvider | None,
         # The following are globals are currently not configurable
         max_seq_length: int = DOC_EMBEDDING_CONTEXT_SIZE,
         retrim_content: bool = False,
@@ -216,6 +228,7 @@ class RerankingModel:
     def __init__(
         self,
         model_name: str,
+        provider_type: RerankerProvider | None,
         api_key: str | None,
         model_server_host: str = MODEL_SERVER_HOST,
         model_server_port: int = MODEL_SERVER_PORT,
@@ -223,6 +236,7 @@ class RerankingModel:
         model_server_url = build_model_server_url(model_server_host, model_server_port)
         self.rerank_server_endpoint = model_server_url + "/encoder/cross-encoder-scores"
         self.model_name = model_name
+        self.provider_type = provider_type
         self.api_key = api_key
 
     def predict(self, query: str, passages: list[str]) -> list[float]:
@@ -230,6 +244,7 @@ class RerankingModel:
             query=query,
             documents=passages,
             model_name=self.model_name,
+            provider_type=self.provider_type,
             api_key=self.api_key,
         )
 
@@ -276,7 +291,31 @@ class QueryAnalysisModel:
         return response_model.is_keyword, response_model.keywords
 
 
-def warm_up_encoders(
+def warm_up_retry(
+    func: Callable[..., Any],
+    tries: int = 20,
+    delay: int = 5,
+    *args: Any,
+    **kwargs: Any,
+) -> Callable[..., Any]:
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        exceptions = []
+        for attempt in range(tries):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                exceptions.append(e)
+                logger.exception(
+                    f"Attempt {attempt + 1} failed; retrying in {delay} seconds..."
+                )
+                time.sleep(delay)
+        raise Exception(f"All retries failed: {exceptions}")
+
+    return wrapper
+
+
+def warm_up_bi_encoder(
     embedding_model: DBEmbeddingModel,
     model_server_host: str = MODEL_SERVER_HOST,
     model_server_port: int = MODEL_SERVER_PORT,
@@ -284,12 +323,8 @@ def warm_up_encoders(
     model_name = embedding_model.model_name
     normalize = embedding_model.normalize
     provider_type = embedding_model.provider_type
-    warm_up_str = (
-        "Danswer is amazing! Check out our easy deployment guide at "
-        "https://docs.danswer.dev/quickstart"
-    )
+    warm_up_str = " ".join(WARM_UP_STRINGS)
 
-    # May not be the exact same tokenizer used for the indexing flow
     logger.debug(f"Warming up encoder model: {model_name}")
     get_tokenizer(model_name=model_name, provider_type=provider_type).encode(
         warm_up_str
@@ -307,16 +342,20 @@ def warm_up_encoders(
         api_key=None,
     )
 
-    # First time downloading the models it may take even longer, but just in case,
-    # retry the whole server
-    wait_time = 5
-    for _ in range(20):
-        try:
-            embed_model.encode(texts=[warm_up_str], text_type=EmbedTextType.QUERY)
-            return
-        except Exception:
-            logger.exception(
-                f"Failed to run test embedding, retrying in {wait_time} seconds..."
-            )
-            time.sleep(wait_time)
-    raise Exception("Failed to run test embedding.")
+    retry_encode = warm_up_retry(embed_model.encode)
+    retry_encode(texts=[warm_up_str], text_type=EmbedTextType.QUERY)
+
+
+def warm_up_cross_encoder(
+    rerank_model_name: str,
+) -> None:
+    logger.debug(f"Warming up reranking model: {rerank_model_name}")
+
+    reranking_model = RerankingModel(
+        model_name=rerank_model_name,
+        provider_type=None,
+        api_key=None,
+    )
+
+    retry_rerank = warm_up_retry(reranking_model.predict)
+    retry_rerank(WARM_UP_STRINGS[0], WARM_UP_STRINGS[1:])
