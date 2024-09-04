@@ -99,7 +99,6 @@ import ExceptionTraceModal from "@/components/modals/ExceptionTraceModal";
 
 import { SEARCH_TOOL_NAME } from "./tools/constants";
 import { useUser } from "@/components/user/UserProvider";
-import { Stop } from "@phosphor-icons/react";
 
 const TEMP_USER_MESSAGE_ID = -1;
 const TEMP_ASSISTANT_MESSAGE_ID = -2;
@@ -2194,7 +2193,6 @@ export function ChatPage({
                                 <div className="mobile:hidden mt-4 flex items-center justify-center relative w-[95%] mx-auto">
                                   <div className="text-sm text-text-500 max-w-searchbar-max px-4 text-center">
                                     <MinimalMarkdown
-                                      className=""
                                       content={
                                         enterpriseSettings.custom_lower_disclaimer_content
                                       }
