@@ -1,10 +1,13 @@
 import json
+import logging
+import traceback
 from datetime import timedelta
 from typing import Any
 from typing import cast
 
 import redis
 from celery import Celery
+from celery import current_task
 from celery import signals
 from celery import Task
 from celery.contrib.abortable import AbortableTask  # type: ignore
@@ -40,6 +43,7 @@ from danswer.configs.constants import POSTGRES_CELERY_WORKER_APP_NAME
 from danswer.configs.constants import PostgresAdvisoryLocks
 from danswer.connectors.factory import instantiate_connector
 from danswer.connectors.models import InputType
+from danswer.db.connector_credential_pair import add_deletion_failure_message
 from danswer.db.connector_credential_pair import (
     get_connector_credential_pair,
 )
@@ -62,6 +66,8 @@ from danswer.document_index.document_index_utils import get_both_index_names
 from danswer.document_index.factory import get_default_document_index
 from danswer.document_index.interfaces import UpdateRequest
 from danswer.redis.redis_pool import RedisPool
+from danswer.utils.logger import ColoredFormatter
+from danswer.utils.logger import PlainFormatter
 from danswer.utils.logger import setup_logger
 from danswer.utils.variable_functionality import fetch_versioned_implementation
 from danswer.utils.variable_functionality import (
@@ -97,6 +103,7 @@ def cleanup_connector_credential_pair_task(
     Needs to potentially update a large number of Postgres and Vespa docs, including deleting them
     or updating the ACL"""
     engine = get_sqlalchemy_engine()
+
     with Session(engine) as db_session:
         # validate that the connector / credential pair is deletable
         cc_pair = get_connector_credential_pair(
@@ -109,14 +116,13 @@ def cleanup_connector_credential_pair_task(
                 f"Cannot run deletion attempt - connector_credential_pair with Connector ID: "
                 f"{connector_id} and Credential ID: {credential_id} does not exist."
             )
-
-        deletion_attempt_disallowed_reason = check_deletion_attempt_is_allowed(
-            connector_credential_pair=cc_pair, db_session=db_session
-        )
-        if deletion_attempt_disallowed_reason:
-            raise ValueError(deletion_attempt_disallowed_reason)
-
         try:
+            deletion_attempt_disallowed_reason = check_deletion_attempt_is_allowed(
+                connector_credential_pair=cc_pair, db_session=db_session
+            )
+            if deletion_attempt_disallowed_reason:
+                raise ValueError(deletion_attempt_disallowed_reason)
+
             # The bulk of the work is in here, updates Postgres and Vespa
             curr_ind_name, sec_ind_name = get_both_index_names(db_session)
             document_index = get_default_document_index(
@@ -127,7 +133,11 @@ def cleanup_connector_credential_pair_task(
                 document_index=document_index,
                 cc_pair=cc_pair,
             )
+
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            error_message = f"Error: {str(e)}\n\nStack Trace:\n{stack_trace}"
+            add_deletion_failure_message(db_session, cc_pair.id, error_message)
             task_logger.exception(
                 f"Failed to run connector_deletion. "
                 f"connector_id={connector_id} credential_id={credential_id}"
@@ -410,6 +420,7 @@ def check_for_cc_pair_deletion_task() -> None:
                 task_logger.info(
                     f"Deleting the {cc_pair.name} connector credential pair"
                 )
+
                 cleanup_connector_credential_pair_task.apply_async(
                     kwargs=dict(
                         connector_id=cc_pair.connector.id,
@@ -873,6 +884,77 @@ def on_worker_init(sender: Any, **kwargs: Any) -> None:
 
     for key in r.scan_iter(RedisUserGroup.FENCE_PREFIX + "*"):
         r.delete(key)
+
+
+class CeleryTaskPlainFormatter(PlainFormatter):
+    def format(self, record: logging.LogRecord) -> str:
+        task = current_task
+        if task and task.request:
+            record.__dict__.update(task_id=task.request.id, task_name=task.name)
+            record.msg = f"[{task.name}({task.request.id})] {record.msg}"
+
+        return super().format(record)
+
+
+class CeleryTaskColoredFormatter(ColoredFormatter):
+    def format(self, record: logging.LogRecord) -> str:
+        task = current_task
+        if task and task.request:
+            record.__dict__.update(task_id=task.request.id, task_name=task.name)
+            record.msg = f"[{task.name}({task.request.id})] {record.msg}"
+
+        return super().format(record)
+
+
+@signals.setup_logging.connect
+def on_setup_logging(
+    loglevel: Any, logfile: Any, format: Any, colorize: Any, **kwargs: Any
+) -> None:
+    # TODO: could unhardcode format and colorize and accept these as options from
+    # celery's config
+
+    # reformats celery's worker logger
+    root_logger = logging.getLogger()
+
+    root_handler = logging.StreamHandler()  # Set up a handler for the root logger
+    root_formatter = ColoredFormatter(
+        "%(asctime)s %(filename)30s %(lineno)4s: %(message)s",
+        datefmt="%m/%d/%Y %I:%M:%S %p",
+    )
+    root_handler.setFormatter(root_formatter)
+    root_logger.addHandler(root_handler)  # Apply the handler to the root logger
+
+    if logfile:
+        root_file_handler = logging.FileHandler(logfile)
+        root_file_formatter = PlainFormatter(
+            "%(asctime)s %(filename)30s %(lineno)4s: %(message)s",
+            datefmt="%m/%d/%Y %I:%M:%S %p",
+        )
+        root_file_handler.setFormatter(root_file_formatter)
+        root_logger.addHandler(root_file_handler)
+
+    root_logger.setLevel(loglevel)
+
+    # reformats celery's task logger
+    task_formatter = CeleryTaskColoredFormatter(
+        "%(asctime)s %(filename)30s %(lineno)4s: %(message)s",
+        datefmt="%m/%d/%Y %I:%M:%S %p",
+    )
+    task_handler = logging.StreamHandler()  # Set up a handler for the task logger
+    task_handler.setFormatter(task_formatter)
+    task_logger.addHandler(task_handler)  # Apply the handler to the task logger
+
+    if logfile:
+        task_file_handler = logging.FileHandler(logfile)
+        task_file_formatter = CeleryTaskPlainFormatter(
+            "%(asctime)s %(filename)30s %(lineno)4s: %(message)s",
+            datefmt="%m/%d/%Y %I:%M:%S %p",
+        )
+        task_file_handler.setFormatter(task_file_formatter)
+        task_logger.addHandler(task_file_handler)
+
+    task_logger.setLevel(loglevel)
+    task_logger.propagate = False
 
 
 #####
