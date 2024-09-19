@@ -133,6 +133,12 @@ class AuthType(str, Enum):
     SAML = "saml"
 
 
+class SessionType(str, Enum):
+    CHAT = "Chat"
+    SEARCH = "Search"
+    SLACK = "Slack"
+
+
 class QAFeedbackType(str, Enum):
     LIKE = "like"  # User likes the answer, used for metrics
     DISLIKE = "dislike"  # User dislikes the answer, used for metrics
@@ -181,6 +187,8 @@ class DanswerCeleryQueues:
 class DanswerRedisLocks:
     CHECK_VESPA_SYNC_BEAT_LOCK = "da_lock:check_vespa_sync_beat"
     MONITOR_VESPA_SYNC_BEAT_LOCK = "da_lock:monitor_vespa_sync_beat"
+    CHECK_CONNECTOR_DELETION_BEAT_LOCK = "da_lock:check_connector_deletion_beat"
+    MONITOR_CONNECTOR_DELETION_BEAT_LOCK = "da_lock:monitor_connector_deletion_beat"
 
 
 class DanswerCeleryPriority(int, Enum):
