@@ -1,23 +1,18 @@
 name: Connector Tests
 
 on:
-  pull_request:
-    branches: [main]
   schedule:
     # This cron expression runs the job daily at 16:00 UTC (9am PT)
     - cron: "0 16 * * *"
 
 env:
-  # Confluence
-  CONFLUENCE_TEST_SPACE_URL: ${{ secrets.CONFLUENCE_TEST_SPACE_URL }}
-  CONFLUENCE_TEST_SPACE: ${{ secrets.CONFLUENCE_TEST_SPACE }}
-  CONFLUENCE_IS_CLOUD: ${{ secrets.CONFLUENCE_IS_CLOUD }}
-  CONFLUENCE_TEST_PAGE_ID: ${{ secrets.CONFLUENCE_TEST_PAGE_ID }}
-  CONFLUENCE_USER_NAME: ${{ secrets.CONFLUENCE_USER_NAME }}
-  CONFLUENCE_ACCESS_TOKEN: ${{ secrets.CONFLUENCE_ACCESS_TOKEN }}
-  # Jira
-  JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-  JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+  # Bedrock
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_REGION_NAME: ${{ secrets.AWS_REGION_NAME }}
+
+  # OpenAI
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
 jobs:
   connectors-check:
@@ -48,7 +43,9 @@ jobs:
 
       - name: Run Tests
         shell: script -q -e -c "bash --noprofile --norc -eo pipefail {0}"
-        run: py.test -o junit_family=xunit2 -xv --ff backend/tests/daily/connectors
+        run: |
+          py.test -o junit_family=xunit2 -xv --ff backend/tests/daily/llm
+          py.test -o junit_family=xunit2 -xv --ff backend/tests/daily/embedding
 
       - name: Alert on Failure
         if: failure() && github.event_name == 'schedule'
@@ -57,5 +54,5 @@ jobs:
         run: |
           curl -X POST \
             -H 'Content-type: application/json' \
-            --data '{"text":"Scheduled Connector Tests failed! Check the run at: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+            --data '{"text":"Scheduled Model Tests failed! Check the run at: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
             $SLACK_WEBHOOK
