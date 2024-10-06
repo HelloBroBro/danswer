@@ -138,6 +138,12 @@ POSTGRES_HOST = os.environ.get("POSTGRES_HOST") or "localhost"
 POSTGRES_PORT = os.environ.get("POSTGRES_PORT") or "5432"
 POSTGRES_DB = os.environ.get("POSTGRES_DB") or "postgres"
 
+POSTGRES_API_SERVER_POOL_SIZE = int(
+    os.environ.get("POSTGRES_API_SERVER_POOL_SIZE") or 40
+)
+POSTGRES_API_SERVER_POOL_OVERFLOW = int(
+    os.environ.get("POSTGRES_API_SERVER_POOL_OVERFLOW") or 10
+)
 # defaults to False
 POSTGRES_POOL_PRE_PING = os.environ.get("POSTGRES_POOL_PRE_PING", "").lower() == "true"
 
@@ -406,3 +412,11 @@ CUSTOM_ANSWER_VALIDITY_CONDITIONS = json.loads(
 ENTERPRISE_EDITION_ENABLED = (
     os.environ.get("ENABLE_PAID_ENTERPRISE_EDITION_FEATURES", "").lower() == "true"
 )
+
+
+MULTI_TENANT = os.environ.get("MULTI_TENANT", "").lower() == "true"
+SECRET_JWT_KEY = os.environ.get("SECRET_JWT_KEY", "")
+
+
+DATA_PLANE_SECRET = os.environ.get("DATA_PLANE_SECRET", "")
+EXPECTED_API_KEY = os.environ.get("EXPECTED_API_KEY", "")
