@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { FullSearchBar } from "./SearchBar";
 import { SearchResultsDisplay } from "./SearchResultsDisplay";
 import { SourceSelector } from "./filtering/Filters";
@@ -106,15 +106,15 @@ export const SearchSection = ({
 
   const [agentic, setAgentic] = useState(agenticSearchEnabled);
 
-  const toggleAgentic = () => {
+  const toggleAgentic = useCallback(() => {
     Cookies.set(
       AGENTIC_SEARCH_TYPE_COOKIE_NAME,
       String(!agentic).toLocaleLowerCase()
     );
     setAgentic((agentic) => !agentic);
-  };
+  }, [agentic]);
 
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     Cookies.set(
       SIDEBAR_TOGGLED_COOKIE_NAME,
       String(!toggledSidebar).toLocaleLowerCase()
@@ -123,7 +123,7 @@ export const SearchSection = ({
         path: "/",
       };
     toggle();
-  };
+  }, [toggledSidebar, toggle]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -140,7 +140,8 @@ export const SearchSection = ({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [toggleAgentic]);
+
   const [isFetching, setIsFetching] = useState(false);
 
   // Search Type
@@ -522,7 +523,7 @@ export const SearchSection = ({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [router]);
+  }, [router, toggleSidebar]);
 
   useEffect(() => {
     if (settings?.isMobile) {
