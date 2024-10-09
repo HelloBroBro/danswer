@@ -401,6 +401,9 @@ CUSTOM_ANSWER_VALIDITY_CONDITIONS = json.loads(
     os.environ.get("CUSTOM_ANSWER_VALIDITY_CONDITIONS", "[]")
 )
 
+VESPA_REQUEST_TIMEOUT = int(os.environ.get("VESPA_REQUEST_TIMEOUT") or "5")
+
+SYSTEM_RECURSION_LIMIT = int(os.environ.get("SYSTEM_RECURSION_LIMIT") or "1000")
 
 #####
 # Enterprise Edition Configs
@@ -412,6 +415,12 @@ CUSTOM_ANSWER_VALIDITY_CONDITIONS = json.loads(
 ENTERPRISE_EDITION_ENABLED = (
     os.environ.get("ENABLE_PAID_ENTERPRISE_EDITION_FEATURES", "").lower() == "true"
 )
+
+# Azure DALL-E Configurations
+AZURE_DALLE_API_VERSION = os.environ.get("AZURE_DALLE_API_VERSION")
+AZURE_DALLE_API_KEY = os.environ.get("AZURE_DALLE_API_KEY")
+AZURE_DALLE_API_BASE = os.environ.get("AZURE_DALLE_API_BASE")
+AZURE_DALLE_DEPLOYMENT_NAME = os.environ.get("AZURE_DALLE_DEPLOYMENT_NAME")
 
 
 MULTI_TENANT = os.environ.get("MULTI_TENANT", "").lower() == "true"
