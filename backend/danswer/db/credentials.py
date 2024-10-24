@@ -242,7 +242,6 @@ def create_credential(
     )
     db_session.add(credential)
     db_session.flush()  # This ensures the credential gets an ID
-
     _relate_credential_to_user_groups__no_commit(
         db_session=db_session,
         credential_id=credential.id,
@@ -403,6 +402,24 @@ def create_initial_public_credential(db_session: Session) -> None:
         user_id=None,
     )
     db_session.add(credential)
+    db_session.commit()
+
+
+def cleanup_gmail_credentials(db_session: Session) -> None:
+    gmail_credentials = fetch_credentials_by_source(
+        db_session=db_session, user=None, document_source=DocumentSource.GMAIL
+    )
+    for credential in gmail_credentials:
+        db_session.delete(credential)
+    db_session.commit()
+
+
+def cleanup_google_drive_credentials(db_session: Session) -> None:
+    google_drive_credentials = fetch_credentials_by_source(
+        db_session=db_session, user=None, document_source=DocumentSource.GOOGLE_DRIVE
+    )
+    for credential in google_drive_credentials:
+        db_session.delete(credential)
     db_session.commit()
 
 
