@@ -96,6 +96,7 @@ from danswer.utils.variable_functionality import set_is_ee_based_on_env_variable
 from shared_configs.configs import CORS_ALLOWED_ORIGIN
 from shared_configs.configs import SENTRY_DSN
 
+
 logger = setup_logger()
 
 
@@ -213,7 +214,7 @@ def get_application() -> FastAPI:
         sentry_sdk.init(
             dsn=SENTRY_DSN,
             integrations=[StarletteIntegration(), FastApiIntegration()],
-            traces_sample_rate=0.5,
+            traces_sample_rate=0.1,
         )
         logger.info("Sentry initialized")
     else:
