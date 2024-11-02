@@ -1,0 +1,36 @@
+# Scan for problematic software licenses
+
+# trivy has their own rate limiting issues causing this action to flake
+# we worked around it by hardcoding to different db repos in env
+# can re-enable when they figure it out
+# https://github.com/aquasecurity/trivy/discussions/7538
+# https://github.com/aquasecurity/trivy-action/issues/389
+
+name: 'Nightly - Scan licenses'
+on:
+  schedule:
+    - cron: '0 14 * * *'  # Runs every day at 6 AM PST / 7 AM PDT / 2 PM UTC
+  workflow_dispatch:  # Allows manual triggering
+  
+jobs:
+  scan-licenses:
+    # See https://runs-on.com/runners/linux/
+    runs-on: [runs-on,runner=2cpu-linux-x64,"run-id=${{ github.run_id }}"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scanners: license
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
