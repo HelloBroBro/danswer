@@ -42,6 +42,7 @@ export interface User {
   current_token_created_at?: Date;
   current_token_expiry_length?: number;
   oidc_expiry?: Date;
+  is_cloud_superuser?: boolean;
   organization_name: string | null;
 }
 
@@ -263,6 +264,7 @@ const validSources = [
   "oci_storage",
   "not_applicable",
   "ingestion_api",
+  "freshdesk",
 ] as const;
 
 export type ValidSources = (typeof validSources)[number];

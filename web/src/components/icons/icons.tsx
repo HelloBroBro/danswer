@@ -15,7 +15,6 @@ import {
   ArrowSquareOut,
 } from "@phosphor-icons/react";
 import {
-  FiCheck,
   FiChevronsDown,
   FiChevronsUp,
   FiEdit2,
@@ -30,17 +29,10 @@ import {
   FiChevronRight,
   FiChevronLeft,
   FiAlertTriangle,
-  FiZoomIn,
   FiCopy,
-  FiBookmark,
   FiCpu,
   FiInfo,
-  FiUploadCloud,
-  FiUser,
-  FiUsers,
   FiBarChart2,
-  FiDatabase,
-  FiSlack,
 } from "react-icons/fi";
 import { SiBookstack } from "react-icons/si";
 import Image, { StaticImageData } from "next/image";
@@ -74,6 +66,7 @@ import slackIcon from "../../../public/Slack.png";
 import s3Icon from "../../../public/S3.png";
 import r2Icon from "../../../public/r2.png";
 import salesforceIcon from "../../../public/Salesforce.png";
+import freshdeskIcon from "../../../public/Freshdesk.png";
 
 import sharepointIcon from "../../../public/Sharepoint.png";
 import teamsIcon from "../../../public/Teams.png";
@@ -1292,6 +1285,13 @@ export const AsanaIcon = ({
   size = 16,
   className = defaultTailwindCSS,
 }: IconProps) => <LogoIcon size={size} className={className} src={asanaIcon} />;
+
+export const FreshdeskIcon = ({
+  size = 16,
+  className = defaultTailwindCSS,
+}: IconProps) => (
+  <LogoIcon size={size} className={className} src={freshdeskIcon} />
+);
 
 /* 
 EE Icons
