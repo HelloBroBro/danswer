@@ -64,11 +64,11 @@ class ConnectorBase(BaseModel):
 
 
 class ConnectorUpdateRequest(ConnectorBase):
-    is_public: bool = True
+    access_type: AccessType
     groups: list[int] = Field(default_factory=list)
 
     def to_connector_base(self) -> ConnectorBase:
-        return ConnectorBase(**self.model_dump(exclude={"is_public", "groups"}))
+        return ConnectorBase(**self.model_dump(exclude={"access_type", "groups"}))
 
 
 class ConnectorSnapshot(ConnectorBase):
@@ -237,6 +237,8 @@ class CCPairFullInfo(BaseModel):
     is_editable_for_current_user: bool
     deletion_failure_message: str | None
     indexing: bool
+    creator: UUID | None
+    creator_email: str | None
 
     @classmethod
     def from_models(
@@ -282,6 +284,10 @@ class CCPairFullInfo(BaseModel):
             is_editable_for_current_user=is_editable_for_current_user,
             deletion_failure_message=cc_pair_model.deletion_failure_message,
             indexing=indexing,
+            creator=cc_pair_model.creator_id,
+            creator_email=cc_pair_model.creator.email
+            if cc_pair_model.creator
+            else None,
         )
 
 
