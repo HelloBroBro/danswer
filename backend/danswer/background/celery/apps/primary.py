@@ -1,5 +1,6 @@
 import multiprocessing
 from typing import Any
+from typing import cast
 
 from celery import bootsteps  # type: ignore
 from celery import Celery
@@ -14,7 +15,9 @@ from celery.signals import worker_shutdown
 import danswer.background.celery.apps.app_base as app_base
 from danswer.background.celery.apps.app_base import task_logger
 from danswer.background.celery.celery_utils import celery_is_worker_primary
-from danswer.background.celery.tasks.vespa.tasks import get_unfenced_index_attempt_ids
+from danswer.background.celery.tasks.indexing.tasks import (
+    get_unfenced_index_attempt_ids,
+)
 from danswer.configs.constants import CELERY_PRIMARY_WORKER_LOCK_TIMEOUT
 from danswer.configs.constants import DanswerRedisLocks
 from danswer.configs.constants import POSTGRES_CELERY_WORKER_PRIMARY_APP_NAME
@@ -94,6 +97,15 @@ def on_worker_init(sender: Any, **kwargs: Any) -> None:
     # This is singleton work that should be done on startup exactly once
     # by the primary worker. This is unnecessary in the multi tenant scenario
     r = get_redis_client(tenant_id=None)
+
+    # Log the role and slave count - being connected to a slave or slave count > 0 could be problematic
+    info: dict[str, Any] = cast(dict, r.info("replication"))
+    role: str = cast(str, info.get("role"))
+    connected_slaves: int = info.get("connected_slaves", 0)
+
+    logger.info(
+        f"Redis INFO REPLICATION: role={role} connected_slaves={connected_slaves}"
+    )
 
     # For the moment, we're assuming that we are the only primary worker
     # that should be running.
