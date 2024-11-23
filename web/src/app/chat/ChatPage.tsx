@@ -52,6 +52,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useMemo,
 } from "react";
 import { usePopup } from "@/components/admin/connectors/Popup";
 import { SEARCH_PARAM_NAMES, shouldSubmitOnLoad } from "./searchParams";
@@ -266,7 +267,6 @@ export function ChatPage({
     availableAssistants[0];
 
   const noAssistants = liveAssistant == null || liveAssistant == undefined;
-
   // always set the model override for the chat session, when an assistant, llm provider, or user preference exists
   useEffect(() => {
     const personaDefault = getLLMProviderOverrideForPersona(
@@ -282,7 +282,7 @@ export function ChatPage({
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveAssistant, llmProviders, user?.preferences.default_model]);
+  }, [liveAssistant, user?.preferences.default_model]);
 
   const stopGenerating = () => {
     const currentSession = currentSessionId();
@@ -2461,7 +2461,6 @@ export function ChatPage({
                               textAreaRef={textAreaRef}
                               chatSessionId={chatSessionIdRef.current!}
                             />
-
                             {enterpriseSettings &&
                               enterpriseSettings.custom_lower_disclaimer_content && (
                                 <div className="mobile:hidden mt-4 flex items-center justify-center relative w-[95%] mx-auto">
@@ -2474,7 +2473,6 @@ export function ChatPage({
                                   </div>
                                 </div>
                               )}
-
                             {enterpriseSettings &&
                               enterpriseSettings.use_custom_logotype && (
                                 <div className="hidden lg:block absolute right-0 bottom-0">
